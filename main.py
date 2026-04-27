@@ -14,7 +14,34 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+def get_clan_role(member: discord.Member):
+    # Assumes clan owner has ONLY 1 clan role (recommended)
+    for role in member.roles:
+        if role.name not in ["@everyone"]:
+            return role
+    return None
 
+class ClanInviteView(discord.ui.View):
+    def __init__(self, role, target):
+        super().__init__(timeout=60)
+        self.role = role
+        self.target = target
+
+    @discord.ui.button(label="Accept", style=discord.ButtonStyle.success)
+    async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.target:
+            return await interaction.response.send_message("Not your invite.", ephemeral=True)
+
+        await interaction.user.add_roles(self.role)
+        await interaction.response.edit_message(content="You joined the clan!", view=None)
+
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger)
+    async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.target:
+            return await interaction.response.send_message("Not your invite.", ephemeral=True)
+
+        await interaction.response.edit_message(content="Invite declined.", view=None)
+        
 # =========================
 # JOIN VIEW (MAIN SYSTEM)
 # =========================
@@ -245,7 +272,65 @@ async def league(interaction: discord.Interaction):
         view=LeagueSetupView(),
         ephemeral=True
     )
+@bot.tree.command(name="promote", description="Create a clan and assign an owner")
+async def promote(interaction: discord.Interaction, clan_name: str, clan_owner: discord.Member):
 
+    # Optional: restrict to admin or yourself
+    if not interaction.user.guild_permissions.administrator:
+        return await interaction.response.send_message(
+            "You need administrator permissions.",
+            ephemeral=True
+        )
+
+    # Create role
+    role = await interaction.guild.create_role(name=clan_name)
+
+    # Give role to owner
+    await clan_owner.add_roles(role)
+
+    await interaction.response.send_message(
+        f"{clan_owner.mention} is now the owner of clan **{clan_name}**!"
+    )
+@bot.tree.command(name="offer", description="Invite a member to your clan")
+async def offer(interaction: discord.Interaction, member: discord.Member):
+
+    clan_role = get_clan_role(interaction.user)
+
+    if not clan_role:
+        return await interaction.response.send_message(
+            "You are not a clan owner.",
+            ephemeral=True
+        )
+
+    view = ClanInviteView(clan_role, member)
+
+    await interaction.response.send_message(
+        f"{member.mention}, you got invited to **{clan_role.name}**",
+        view=view
+    )
+@bot.tree.command(name="remove", description="Remove a member from your clan")
+async def remove(interaction: discord.Interaction, member: discord.Member):
+
+    clan_role = get_clan_role(interaction.user)
+
+    if not clan_role:
+        return await interaction.response.send_message(
+            "You are not a clan owner.",
+            ephemeral=True
+        )
+
+    if clan_role not in member.roles:
+        return await interaction.response.send_message(
+            "That user is not in your clan.",
+            ephemeral=True
+        )
+
+    await member.remove_roles(clan_role)
+
+    await interaction.response.send_message(
+        f"{member.mention} was removed from **{clan_role.name}**."
+    )
+    
 @bot.tree.command(name="end", description="End session immediately")
 @app_commands.checks.has_any_role(ALLOWED_ROLE_ID)
 async def end(interaction: discord.Interaction):
