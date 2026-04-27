@@ -3,60 +3,163 @@ from discord import app_commands
 from discord.ext import commands
 from keep_alive import keep_alive
 
-# --- KONFIGŪRACIJA ---
-ALLOWED_ROLE_ID = 1496172112715579586  # Įklijuok savo Role ID
-TOKEN = "MTQ5NDMyNDIxNDg0NzYzOTY2Mg.GULOIt.itaJMRIR7cvkRDHwyIjcWHoJ1J6RKnedg-mI4Y"              # Įklijuok savo Bot Token
+TOKEN = "MTQ5NjgzMTQ0NDk4OTkwMjkxOA.Gr18Cc.9Qer039tI5XGHtkVYOSoDB41Z3xR1O2RPZFor4"
+ALLOWED_ROLE_ID = 1494929242813890651  # change this
+LEAGUES_ROLE_ID = 1494657086309666866  # change this
+ALLOWED_ROLE_ID_GUIDE = 1497118529764327535
+GUILD_ID = 1493860990058627143
 
 intents = discord.Intents.default()
 intents.members = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- 1. Mygtuko vaizdas (Join Button) ---
+
+# =========================
+# JOIN VIEW (MAIN SYSTEM)
+# =========================
+# In your main setup View (the one with the 'Create League' button)
 class JoinLeagueView(discord.ui.View):
-    def __init__(self, thread_id, total_slots, host_name, region, l_type, perks):
+    def __init__(self, thread_id, total_slots, host_user, region, l_type, perks):
         super().__init__(timeout=None)
-        self.thread_id, self.total_slots, self.joined_count = thread_id, total_slots, 1
-        self.region, self.l_type, self.perks, self.host_name = region, l_type, perks, host_name
+        self.thread_id = thread_id
+        self.total_slots = int(total_slots)
+        self.joined_count = 1
+        self.host_user = host_user
+        self.host_name = host_user.name
+        self.region = region
+        self.l_type = l_type
+        self.perks = perks
+        self.joined_users = {host_user.id}
 
     def create_embed(self, is_full=False):
-        color = 0xff0000 if is_full else 0x2f3136
-        slots_text = f"**Open Slots:** {max(0, self.total_slots - self.joined_count)}" if not is_full else "🔒 **LOBBY FULL**"
-        
-        embed = discord.Embed(title="🏆 FCD League Session", color=color)
-        embed.description = f"Click **Join League** to enter.\n{slots_text}"
-        embed.add_field(name="Perks", value=self.perks, inline=True)
-        embed.add_field(name="Type", value=self.l_type, inline=True)
-        embed.add_field(name="Region", value=self.region, inline=True)
-        embed.set_footer(text=f"FCD | Fair Competitive Division | Hosted by {self.host_name}")
-        return embed
+        remaining = self.total_slots - self.joined_count
 
-    @discord.ui.button(label="Join League", style=discord.ButtonStyle.green, custom_id="join_btn")
-    async def join_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        thread = interaction.guild.get_thread(self.thread_id)
-        if not thread or self.joined_count >= self.total_slots:
-            return await interaction.response.send_message("Lobby is full or closed.", ephemeral=True)
-        
-        await thread.add_user(interaction.user)
-        self.joined_count += 1
-        await thread.send(f"✅ {interaction.user.mention} joined!")
-        
-        if self.joined_count >= self.total_slots:
-            button.disabled = True
-            await interaction.response.edit_message(embed=self.create_embed(is_full=True), view=self)
+        if is_full:
+            status_text = "🔒 Lobby Full"
+            color = 0xff0000
+            for item in self.children:
+                item.disabled = True
         else:
-            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+            status_text = f"Hosting a game. Need **{remaining}** more player{'s' if remaining != 1 else ''} to join."
+            color = 0x5865F2
 
-# --- 2. Sąrankos klausimai (Setup) ---
+        embed = discord.Embed(
+            title=f"{self.perks} - {self.l_type} ({self.region})",
+            description=status_text,
+            color=color
+        )
+
+        embed.add_field(name="Hosted by", value=f"`{self.host_name}`", inline=True)
+        embed.set_footer(
+            text=f"Game ID: {self.thread_id} • {discord.utils.format_dt(discord.utils.utcnow(), style='t')}"
+        )
+
+        return embed  # Ši eilutė turi būti viename lygyje su 'remaining = ...'
+
+    @discord.ui.button(label="Join Game", style=discord.ButtonStyle.success)
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id in self.joined_users:
+            return await interaction.response.send_message(
+                "You're already in the league!",
+                ephemeral=True
+            )
+
+        if self.joined_count >= self.total_slots:
+            return await interaction.response.send_message(
+                "League is full!",
+                ephemeral=True
+            )
+
+        thread = interaction.guild.get_thread(self.thread_id)
+        if not thread:
+            return await interaction.response.send_message(
+                "Thread not found.",
+                ephemeral=True
+            )
+
+        await thread.add_user(interaction.user)
+        self.joined_users.add(interaction.user.id)
+        self.joined_count += 1
+
+        is_full = self.joined_count >= self.total_slots
+
+        await interaction.response.edit_message(
+            embed=self.create_embed(is_full),
+            view=self
+        )
+
+        await interaction.followup.send(
+            "You joined the league!",
+            ephemeral=True
+        )
+
+        if is_full:
+            try:
+                await thread.edit(name="League: Full", archived=True, locked=True)
+            except:
+                pass
+            
+@bot.tree.command(
+    name="guidelines",
+    description="Post server guidelines"
+)
+@app_commands.checks.has_role(ALLOWED_ROLE_ID_GUIDE)
+async def guidelines(interaction: discord.Interaction):
+
+    embed = discord.Embed(
+        title="📜 SERVER GUIDELINES",
+        description="We’re committed to maintaining a welcoming and respectful environment for everyone.\n\nAny toxic or harmful behavior will not be tolerated. Staff will take appropriate action to ensure community standards are upheld.",
+        color=0x2f3136
+    )
+
+    embed.add_field(
+        name="📖 General Rules",
+        value="Follow Discord Terms of Service and Community Guidelines at all times.\nIf you're new, take a moment to read and understand them.",
+        inline=False
+    )
+
+    embed.add_field(
+        name="⚠️ Harassment & Toxicity",
+        value="Hate speech, racism, or targeted harassment is strictly forbidden.\nToxic behavior will result in mutes, kicks, or bans.\nRespecting others is mandatory.",
+        inline=False
+    )
+
+    embed.add_field(
+        name="🔒 Privacy & Identity Protection",
+        value="Sharing private or real-world information is strictly prohibited.\nDoxxing or leaking content will result in a permanent blacklist.",
+        inline=False
+    )
+
+    embed.add_field(
+        name="🚫 NSFW & Legal Compliance",
+        value="NSFW or illegal content is not allowed.\nViolators will be removed and reported without warning.",
+        inline=False
+    )
+
+    embed.add_field(
+        name="🛡️ System Integrity",
+        value="Exploits, scripts, or abuse of bot systems are forbidden.\nAny attempt to bypass rules will result in permanent removal.",
+        inline=False
+    )
+
+    embed.set_footer(text="RCD • Rogue Competitive Division")
+
+    await interaction.response.send_message(embed=embed)
+
+# =========================
+# SETUP VIEW
+# =========================
 class LeagueSetupView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=60)
         self.values = {}
 
     @discord.ui.select(placeholder="1. Perks?", options=[
-        discord.SelectOption(label="Perks Enabled", value="Perks"),
+        discord.SelectOption(label="Perks", value="Perks"),
         discord.SelectOption(label="No Perks", value="No Perks")
     ])
-    async def perks_s(self, interaction, select):
+    async def perks_s(self, interaction: discord.Interaction, select: discord.ui.Select):
         self.values['perks'] = select.values[0]
         await interaction.response.defer()
 
@@ -67,7 +170,7 @@ class LeagueSetupView(discord.ui.View):
         discord.SelectOption(label="America", value="America"),
         discord.SelectOption(label="Africa", value="Africa")
     ])
-    async def region_s(self, interaction, select):
+    async def region_s(self, interaction: discord.Interaction, select: discord.ui.Select):
         self.values['region'] = select.values[0]
         await interaction.response.defer()
 
@@ -75,7 +178,7 @@ class LeagueSetupView(discord.ui.View):
         discord.SelectOption(label="Swift", value="Swift"),
         discord.SelectOption(label="War", value="War")
     ])
-    async def type_s(self, interaction, select):
+    async def type_s(self, interaction: discord.Interaction, select: discord.ui.Select):
         self.values['type'] = select.values[0]
         await interaction.response.defer()
 
@@ -85,7 +188,7 @@ class LeagueSetupView(discord.ui.View):
         discord.SelectOption(label="3v3", value="6"),
         discord.SelectOption(label="4v4", value="8")
     ])
-    async def amount_s(self, interaction, select):
+    async def amount_s(self, interaction: discord.Interaction, select: discord.ui.Select):
         self.values['slots'] = int(select.values[0])
         await interaction.response.defer()
 
@@ -93,37 +196,75 @@ class LeagueSetupView(discord.ui.View):
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         if len(self.values) < 4:
             return await interaction.response.send_message("Complete all fields!", ephemeral=True)
-        
+
+        # Create thread
         thread = await interaction.channel.create_thread(
-            name=f"FCD: {self.values['type']}",
+            name=f"RCD: {self.values['type']}",
             type=discord.ChannelType.private_thread
         )
+
         await thread.add_user(interaction.user)
 
-        view = JoinLeagueView(thread.id, self.values['slots'], interaction.user.name, self.values['region'], self.values['type'], self.values['perks'])
-        await interaction.response.send_message(content="@everyone League Live!", embed=view.create_embed(), view=view)
+        # Create join system
+        view = JoinLeagueView(
+            thread.id,
+            self.values['slots'],
+            interaction.user.name,
+            self.values['region'],
+            self.values['type'],
+            self.values['perks']
+        )
 
-# --- 3. Komandos ---
+        role_mention = f"<@&{LEAGUES_ROLE_ID}>"
+
+        # Send main message
+        await interaction.response.send_message(
+            content=f"{role_mention} League Hosted!",
+            embed=view.create_embed(),
+            view=view,
+            allowed_mentions=discord.AllowedMentions(roles=True)
+        )
+
+
+# =========================
+# COMMANDS
+# =========================
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f"Botas aktyvus: {bot.user}")
+    print(f"Bot is online: {bot.user}")
+
 
 @bot.tree.command(name="league", description="Host a session")
 @app_commands.checks.has_any_role(ALLOWED_ROLE_ID)
 async def league(interaction: discord.Interaction):
-    await interaction.response.send_message("League Setup:", view=LeagueSetupView(), ephemeral=True)
+    await interaction.response.send_message(
+        "League Setup:",
+        view=LeagueSetupView(),
+        ephemeral=True
+    )
 
 @bot.tree.command(name="end", description="End session immediately")
 @app_commands.checks.has_any_role(ALLOWED_ROLE_ID)
 async def end(interaction: discord.Interaction):
     if isinstance(interaction.channel, discord.Thread):
-        thread = interaction.channel
         await interaction.response.send_message("League session closed.")
-        # Tik pervadiname ir uždarome, jokių klausimų
-        await thread.edit(name="League: Ended", archived=True, locked=True)
+        await interaction.channel.edit(name="League: Ended", archived=True, locked=True)
     else:
-        await interaction.response.send_message("Use this inside the league thread!", ephemeral=True)
+        await interaction.response.send_message(
+            "Use this command inside the league thread!",
+            ephemeral=True
+        )
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+
+    await bot.change_presence(
+        activity=discord.Activity(
+            type=discord.ActivityType.watching,
+            name="Leagues"
+        )
+    )
 
 keep_alive()
 bot.run(TOKEN)
