@@ -167,7 +167,9 @@ class LeagueSetupView(discord.ui.View):
         discord.SelectOption(label="EU", value="EU"),
         discord.SelectOption(label="Asia", value="Asia"),
         discord.SelectOption(label="NA", value="NA"),
-        discord.SelectOption(label="America", value="America"),
+        discord.SelectOption(label="South America", value="South America"),
+        discord.SelectOption(label="North America", value="North America"),
+        discord.SelectOption(label="Oceania", value="Oceania"),
         discord.SelectOption(label="Africa", value="Africa")
     ])
     async def region_s(self, interaction: discord.Interaction, select: discord.ui.Select):
