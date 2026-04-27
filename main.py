@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from keep_alive import keep_alive
 
-TOKEN = ""
+TOKEN = "MTQ5ODI3NTY1MDAyNzUyNDI3Nw.G6bK54.MlgA4tH6knguiMkraNw237sNPr6IEkSpUX8JHw"
 ALLOWED_ROLE_ID =   # change this
 LEAGUES_ROLE_ID =  # change this
 ALLOWED_ROLE_ID_GUIDE = 
