@@ -54,15 +54,19 @@ class ClanInviteView(discord.ui.View):
 class JoinLeagueView(discord.ui.View):
     def __init__(self, thread_id, total_slots, host_user, region, l_type, perks):
         super().__init__(timeout=None)
-        self.thread_id = thread_id
+
+        self.thread_id = int(thread_id)
         self.total_slots = int(total_slots)
+
         self.joined_count = 1
+        self.joined_users = {host_user.id}
+
         self.host_user = host_user
         self.host_name = getattr(host_user, "name", str(host_user))
+
         self.region = region
         self.l_type = l_type
         self.perks = perks
-        self.joined_users = {host_user.id}
 
     def create_embed(self, is_full=False):
         remaining = self.total_slots - self.joined_count
@@ -73,7 +77,10 @@ class JoinLeagueView(discord.ui.View):
             for item in self.children:
                 item.disabled = True
         else:
-            status_text = f"Hosting a game. Need **{remaining}** more player{'s' if remaining != 1 else ''} to join."
+            status_text = (
+                f"Hosting a game. Need **{remaining}** more player"
+                f"{'s' if remaining != 1 else ''} to join."
+            )
             color = 0x5865F2
 
         embed = discord.Embed(
@@ -82,13 +89,21 @@ class JoinLeagueView(discord.ui.View):
             color=color
         )
 
-        embed.add_field(name="Hosted by", value=f"`{self.host_name}`", inline=True)
+        embed.add_field(
+            name="Hosted by",
+            value=f"`{self.host_name}`",
+            inline=True
+        )
+
         embed.set_footer(
-            text=f"Game ID: {self.thread_id} • {discord.utils.format_dt(discord.utils.utcnow(), style='t')}"
+            text=f"Game ID: {self.thread_id}"
         )
 
         return embed
 
+    # =========================
+    # JOIN BUTTON
+    # =========================
     @discord.ui.button(label="Join Game", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
 
