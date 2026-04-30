@@ -58,7 +58,7 @@ class JoinLeagueView(discord.ui.View):
         self.total_slots = int(total_slots)
         self.joined_count = 1
         self.host_user = host_user
-        self.host_name = host_user.name
+        self.host_name = getattr(host_user, "name", str(host_user))
         self.region = region
         self.l_type = l_type
         self.perks = perks
@@ -87,55 +87,54 @@ class JoinLeagueView(discord.ui.View):
             text=f"Game ID: {self.thread_id} • {discord.utils.format_dt(discord.utils.utcnow(), style='t')}"
         )
 
-        return embed  # Ši eilutė turi būti viename lygyje su 'remaining = ...'
+        return embed
 
-   @discord.ui.button(label="Join Game", style=discord.ButtonStyle.success)
-async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Join Game", style=discord.ButtonStyle.success)
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
 
-    await interaction.response.defer(ephemeral=True)  # ✅ FIX
+        await interaction.response.defer(ephemeral=True)
 
-    if interaction.user.id in self.joined_users:
-        return await interaction.followup.send(
-            "You're already in the league!",
+        if interaction.user.id in self.joined_users:
+            return await interaction.followup.send(
+                "You're already in the league!",
+                ephemeral=True
+            )
+
+        if self.joined_count >= self.total_slots:
+            return await interaction.followup.send(
+                "League is full!",
+                ephemeral=True
+            )
+
+        thread = interaction.guild.get_thread(self.thread_id)
+        if not thread:
+            return await interaction.followup.send(
+                "Thread not found.",
+                ephemeral=True
+            )
+
+        await thread.add_user(interaction.user)
+
+        self.joined_users.add(interaction.user.id)
+        self.joined_count += 1
+
+        is_full = self.joined_count >= self.total_slots
+
+        await interaction.message.edit(
+            embed=self.create_embed(is_full),
+            view=self
+        )
+
+        await interaction.followup.send(
+            "You joined the league! 🎮",
             ephemeral=True
         )
 
-    if self.joined_count >= self.total_slots:
-        return await interaction.followup.send(
-            "League is full!",
-            ephemeral=True
-        )
-
-    thread = interaction.guild.get_thread(self.thread_id)
-    if not thread:
-        return await interaction.followup.send(
-            "Thread not found.",
-            ephemeral=True
-        )
-
-    await thread.add_user(interaction.user)
-
-    self.joined_users.add(interaction.user.id)
-    self.joined_count += 1
-
-    is_full = self.joined_count >= self.total_slots
-
-    # Update main message
-    await interaction.message.edit(
-        embed=self.create_embed(is_full),
-        view=self
-    )
-
-    await interaction.followup.send(
-        "You joined the league! 🎮",
-        ephemeral=True
-    )
-
-    if is_full:
-        try:
-            await thread.edit(name="League: Full", archived=True, locked=True)
-        except Exception as e:
-            print("Thread lock error:", e)
+        if is_full:
+            try:
+                await thread.edit(name="League: Full", archived=True, locked=True)
+            except Exception as e:
+                print("Thread lock error:", e)
             
 @bot.tree.command(
     name="guidelines",
