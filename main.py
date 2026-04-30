@@ -13,6 +13,10 @@ GUILD_ID = 1493574215062913077
 intents = discord.Intents.default()
 intents.members = True
 
+print("TOKEN TYPE:", type(TOKEN))
+print("TOKEN EXISTS:", TOKEN is not None)
+print("TOKEN LENGTH:", len(TOKEN) if TOKEN else "None")
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 def get_clan_role(member: discord.Member):
