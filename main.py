@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 from keep_alive import keep_alive
 
-TOKEN = os.getenv("TOKEN")
+TOKEN = MTQ5ODI3NTY1MDAyNzUyNDI3Nw.G4GclX.Kai3WUSa0zbiwyxjWaMyLtcrYLxQPz14YqmcVA
 ALLOWED_ROLE_ID = 1498327620310401175  # change this
 LEAGUES_ROLE_ID = 1498327671141302462 # change this
 ALLOWED_ROLE_ID_GUIDE = 1498327708948762644
