@@ -106,7 +106,6 @@ class JoinLeagueView(discord.ui.View):
     # =========================
     @discord.ui.button(label="Join Game", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-
         await interaction.response.defer(ephemeral=True)
 
         if interaction.user.id in self.joined_users:
@@ -140,16 +139,65 @@ class JoinLeagueView(discord.ui.View):
             view=self
         )
 
+        # Žinutė vartotojui (matoma tik jam)
         await interaction.followup.send(
             "You joined the league! 🎮",
             ephemeral=True
         )
 
+        # Vieša žinutė gijoje (matoma visiems)
+        await thread.send(f"🎮 **{interaction.user.display_name}** joined the league! ({self.joined_count}/{self.total_slots})")
+
         if is_full:
             try:
+                await thread.send("🔒 **The lobby is now full!** Starting soon...")
                 await thread.edit(name="League: Full", archived=True, locked=True)
             except Exception as e:
                 print("Thread lock error:", e)
+
+    # =========================
+    # LEAVE BUTTON
+    # =========================
+    @discord.ui.button(label="Leave Game", style=discord.ButtonStyle.danger)
+    async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+
+        if interaction.user.id not in self.joined_users:
+            return await interaction.followup.send(
+                "You are not in this league!",
+                ephemeral=True
+            )
+
+        if interaction.user.id == self.host_user.id:
+            return await interaction.followup.send(
+                "As the host, you cannot leave the game!",
+                ephemeral=True
+            )
+
+        thread = interaction.guild.get_thread(self.thread_id)
+        if thread:
+            try:
+                await thread.remove_user(interaction.user)
+            except Exception as e:
+                print("Thread remove user error:", e)
+
+        self.joined_users.remove(interaction.user.id)
+        self.joined_count -= 1
+
+        await interaction.message.edit(
+            embed=self.create_embed(is_full=False),
+            view=self
+        )
+
+        # Žinutė vartotojui (matoma tik jam)
+        await interaction.followup.send(
+            "You have left the league. ❌",
+            ephemeral=True
+        )
+
+        # Vieša žinutė gijoje (matoma visiems)
+        if thread:
+            await thread.send(f"❌ **{interaction.user.display_name}** left the league. ({self.joined_count}/{self.total_slots})")
             
 @bot.tree.command(
     name="guidelines",
@@ -194,7 +242,7 @@ async def guidelines(interaction: discord.Interaction):
         inline=False
     )
 
-    embed.set_footer(text="RCD • Rogue Competitive Division")
+    embed.set_footer(text="Tester • Tester server")
 
     await interaction.response.send_message(embed=embed)
 
