@@ -265,13 +265,13 @@ async def end(interaction: discord.Interaction):
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,
             name="Leagues"
         )
     )
-
+    print(f"Bot is online: {bot.user}")
+    
 keep_alive()
 bot.run(TOKEN)
