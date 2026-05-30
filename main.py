@@ -5,10 +5,10 @@ from discord.ext import commands
 from keep_alive import keep_alive
 
 TOKEN = os.environ.get("TOKEN")
-ALLOWED_ROLE_ID = 1498327620310401175  # change this
-LEAGUES_ROLE_ID = 1498327671141302462 # change this
-ALLOWED_ROLE_ID_GUIDE = 1498327708948762644
-GUILD_ID = 1493574215062913077
+ALLOWED_ROLE_ID = 1494366881916653690  # change this
+LEAGUES_ROLE_ID = 1494342656845680751 # change this
+ALLOWED_ROLE_ID_GUIDE = 1494270350194638868
+GUILD_ID = 1494270114978332697
 
 intents = discord.Intents.default()
 intents.members = True
