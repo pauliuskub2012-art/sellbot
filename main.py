@@ -46,6 +46,40 @@ class ClanInviteView(discord.ui.View):
             return await interaction.response.send_message("Not your invite.", ephemeral=True)
 
         await interaction.response.edit_message(content="Invite declined.", view=None)
+
+class JoinLeagueView(discord.ui.View):
+    def __init__(self, thread_id, total_slots, host_name, region, l_type, perks):
+        super().__init__(timeout=None)
+        self.thread_id, self.total_slots, self.joined_count = thread_id, total_slots, 1
+        self.region, self.l_type, self.perks, self.host_name = region, l_type, perks, host_name
+
+    def create_embed(self, is_full=False):
+        color = 0xff0000 if is_full else 0x2f3136
+        slots_text = f"**Open Slots:** {max(0, self.total_slots - self.joined_count)}" if not is_full else "🔒 **LOBBY FULL**"
+        
+        embed = discord.Embed(title="🏆 FCD League Session", color=color)
+        embed.description = f"Click **Join League** to enter.\n{slots_text}"
+        embed.add_field(name="Perks", value=self.perks, inline=True)
+        embed.add_field(name="Type", value=self.l_type, inline=True)
+        embed.add_field(name="Region", value=self.region, inline=True)
+        embed.set_footer(text=f"FCD | Fair Competitive Division | Hosted by {self.host_name}")
+        return embed
+
+    @discord.ui.button(label="Join League", style=discord.ButtonStyle.green, custom_id="join_btn")
+    async def join_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        thread = interaction.guild.get_thread(self.thread_id)
+        if not thread or self.joined_count >= self.total_slots:
+            return await interaction.response.send_message("Lobby is full or closed.", ephemeral=True)
+        
+        await thread.add_user(interaction.user)
+        self.joined_count += 1
+        await thread.send(f"✅ {interaction.user.mention} joined!")
+        
+        if self.joined_count >= self.total_slots:
+            button.disabled = True
+            await interaction.response.edit_message(embed=self.create_embed(is_full=True), view=self)
+        else:
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
             
 @bot.tree.command(
     name="guidelines",
